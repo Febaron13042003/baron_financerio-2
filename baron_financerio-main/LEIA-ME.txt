@@ -1,0 +1,161 @@
+═══════════════════════════════════════════════════════════════
+  BARON FINANCEIRO — Controle Financeiro Pessoal & Familiar
+═══════════════════════════════════════════════════════════════
+
+O app funciona em DOIS MODOS:
+
+  🖥️  DESKTOP (offline) — duplo-clique no .bat
+  ☁️  ONLINE (web) — endereço compartilhado com a família
+
+Os dois modos compartilham o mesmo código.
+
+
+─────────────────────────────────────────────
+🖥️  MODO DESKTOP — como já era antes
+─────────────────────────────────────────────
+
+1) Duplo-clique em "Baron Financeiro.bat"
+2) Para criar atalho:
+   - Botão direito > Enviar para > Área de Trabalho
+
+Dados ficam no PC (localStorage do perfil em %LOCALAPPDATA%\BaronFinanceiro).
+Não precisa de internet. Não precisa de login.
+
+
+─────────────────────────────────────────────
+☁️  MODO ONLINE — deploy gratuito (Vercel + Supabase)
+─────────────────────────────────────────────
+
+Você só precisa fazer 3 etapas manuais. Depois é tudo automático.
+
+═══════════ PASSO 1 — Criar projeto na Supabase (3 min) ═══════════
+
+1. Acesse https://supabase.com
+2. "Start your project" → faça login (GitHub é mais rápido)
+3. "New project":
+   - Nome: baron-financeiro
+   - Database password: clica em "Generate password" e ANOTA
+   - Region: South America (São Paulo)
+4. Aguarda ~1 min de provisionamento
+5. Menu lateral > "SQL Editor" > "New query"
+6. Cole TODO o conteúdo do arquivo "supabase-schema.sql"
+7. Clica em "Run" (canto inferior direito)
+   ✓ Deve mostrar "Success. No rows returned"
+8. Menu lateral > "Authentication" > "Providers" > "Email"
+   - Desligue "Confirm email" (mais prático pro casal)
+   - Save
+9. Menu lateral > "Settings" (ícone de engrenagem) > "API"
+   - Copie "Project URL" (começa com https://)
+   - Copie "anon public" key (começa com eyJ...)
+10. Abra o arquivo "config.js" desta pasta e cole os dois valores:
+    const SUPABASE_URL = "https://xxxx.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJ...";
+11. Salve config.js
+
+
+═══════════ PASSO 2 — GitHub + push do código (3 min) ═══════════
+
+1. Crie conta em https://github.com (se ainda não tem)
+2. "New repository":
+   - Nome: baron-financeiro
+   - Privacy: Private (seus dados não vão pro repo, mas o código é seu)
+   - NÃO inicialize com README
+   - Create repository
+3. GitHub te mostra os comandos. Abra um terminal nesta pasta e rode:
+
+    git init
+    git add .
+    git commit -m "Versão inicial"
+    git branch -M main
+    git remote add origin https://github.com/SEU_USER/baron-financeiro.git
+    git push -u origin main
+
+4. Pronto. O código está no GitHub.
+
+⚠️  ATENÇÃO: o .gitignore JÁ EXCLUI o seu arquivo de dados pessoais
+   (baron-financeiro.json). Confirme antes de commitar fazendo:
+   git status   (não pode aparecer baron-financeiro.json na lista)
+
+
+═══════════ PASSO 3 — Deploy no Vercel (4 min) ═══════════
+
+1. Acesse https://vercel.com
+2. "Sign up with GitHub" → autoriza
+3. Dashboard > "Add New" > "Project"
+4. Lista seus repos. Clica em "Import" no "baron-financeiro"
+5. Configure Project:
+   - Framework Preset: Other (deixa o que sugerir)
+   - Build Command: (deixa em branco)
+   - Output Directory: (deixa em branco)
+6. "Deploy"
+7. Aguarda 30 segundos
+8. Pronto! Te dá uma URL tipo: https://baron-financeiro-xxxx.vercel.app
+
+VOCÊ TEM UM APP ONLINE! 🎉
+
+
+═══════════ PASSO 4 — Migrar dados (opcional, 1 min) ═══════════
+
+Se já tinha dados no app desktop:
+
+1. No desktop: abre o app pelo .bat
+2. Configurações > "Exportar backup JSON" → salva o arquivo
+3. Acessa a URL do Vercel no navegador
+4. Cria conta com email + senha
+5. Configurações > "Restaurar backup" > escolhe o JSON
+6. ✓ Todos os lançamentos, recorrências, cartões vêm junto
+
+
+═══════════ COMPARTILHAR COM A FAMÍLIA ═══════════
+
+Mais simples: 1 conta compartilhada pra todos.
+- Você cria conta com 1 email + senha (ex: financas@familia.com)
+- Manda o link da Vercel + email + senha pra esposa
+- Ela abre no celular > faz login > Configurações do navegador > "Adicionar à tela inicial"
+- Vira um app no celular dela
+- Tudo que ela lança aparece pra você (recarregue a página pra atualizar)
+
+
+═══════════ ATUALIZAR O APP DEPOIS ═══════════
+
+Toda vez que você (ou eu) modificar o código:
+
+  git add .
+  git commit -m "descrição da mudança"
+  git push
+
+A Vercel re-faz o deploy automaticamente em ~30 segundos.
+
+
+─────────────────────────────────────────────
+⚠️  RECOMENDAÇÕES
+─────────────────────────────────────────────
+
+• MOVER A PASTA pra fora do iCloud Drive (o iCloud trava arquivos)
+  Sugestão: C:\Apps\Baron Financeiro\
+
+• A Supabase free tier PAUSA o projeto após 7 dias sem acesso.
+  Solução simples: abrir o app pelo menos 1x por semana.
+
+• A "anon key" do Supabase é PÚBLICA — não precisa esconder.
+  A segurança está nas Row Level Security policies (já configuradas).
+
+• Backup periódico: Configurações > "Exportar backup JSON".
+  Guarda em outro lugar (Drive, OneDrive) por segurança.
+
+
+─────────────────────────────────────────────
+PROBLEMAS?
+─────────────────────────────────────────────
+
+• Tela de login fica em loop:
+  > confira se desligou "Confirm email" no Supabase Auth
+
+• "Salvando no navegador" em vez de "☁️ Online":
+  > config.js está com placeholders (cole URL + anon key e re-deploy)
+
+• Esposa não vê seus lançamentos:
+  > peça pra ela atualizar a página (F5 ou recarregar)
+  > funciona, mas não é tempo real instantâneo (custo zero do free tier)
+
+═══════════════════════════════════════════════════════════════

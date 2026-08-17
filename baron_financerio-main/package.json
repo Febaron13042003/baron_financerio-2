@@ -1,0 +1,10 @@
+{
+  "name": "baron-financeiro",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Controle financeiro pessoal e familiar com assistente de IA",
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.70.0"
+  }
+}

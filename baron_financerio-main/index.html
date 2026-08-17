@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <meta name="theme-color" content="#356854">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Baron">
+  <title>Baron Financeiro — Controle Pessoal</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23356854'/%3E%3Ctext x='32' y='44' text-anchor='middle' font-size='34' font-family='Arial' font-weight='bold' fill='white'%3EB%3C/text%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%23356854'/%3E%3Ctext x='96' y='130' text-anchor='middle' font-size='100' font-family='Arial' font-weight='bold' fill='white'%3EB%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <!-- Tela de login (preenchida pelo Auth quando em modo online e não logado) -->
+  <div id="auth-root" class="hidden"></div>
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">B</div>
+      <div>
+        <div class="brand-title">Baron</div>
+        <div class="brand-sub">Financeiro Pessoal</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" data-view="dashboard">
+        <span class="nav-icon">◆</span> Dashboard
+      </button>
+      <button class="nav-item" data-view="lancamentos">
+        <span class="nav-icon">≡</span> Lançamentos
+      </button>
+      <button class="nav-item" data-view="contas">
+        <span class="nav-icon">⏱</span> Contas a Pagar
+      </button>
+      <button class="nav-item" data-view="cartoes">
+        <span class="nav-icon">▭</span> Cartões
+      </button>
+      <button class="nav-item" data-view="fluxo">
+        <span class="nav-icon">$</span> Fluxo de Caixa
+      </button>
+      <button class="nav-item" data-view="fixos">
+        <span class="nav-icon">↻</span> Lançamentos Fixos
+      </button>
+      <button class="nav-item" data-view="relatorios">
+        <span class="nav-icon">▲</span> Relatórios
+      </button>
+      <button class="nav-item nav-item-ai hidden" data-view="assistente" data-ai-gate>
+        <span class="nav-icon">✦</span> Assistente
+        <span class="nav-tag">IA</span>
+      </button>
+      <button class="nav-item" data-view="config">
+        <span class="nav-icon">✱</span> Configurações
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button id="btn-novo" class="btn btn-primary btn-block">+ Novo Lançamento</button>
+      <button id="btn-transfer" class="btn btn-soft btn-block">↔ Transferência</button>
+      <button id="btn-doc-ia" class="btn btn-soft btn-block hidden" data-ai-gate>
+        <span class="ai-spark">✦</span> Ler documento
+      </button>
+      <button id="btn-cupom" class="btn btn-soft btn-block">📷 Importar Cupom</button>
+      <div class="hint" id="storage-hint">Dados salvos localmente neste dispositivo</div>
+      <button id="btn-signout" class="btn btn-block hidden" style="margin-top:8px;font-size:12px;color:var(--text-muted);background:transparent;border:0;">↪ Sair</button>
+    </div>
+  </aside>
+
+  <!-- Backdrop do drawer mobile (clicar fecha o menu) -->
+  <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
+  <main class="main">
+    <header class="topbar">
+      <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Menu">☰</button>
+      <div style="flex:1;min-width:0;">
+        <h1 id="page-title">Dashboard</h1>
+        <div id="page-sub" class="muted">Visão geral das suas finanças</div>
+      </div>
+      <div class="topbar-actions">
+        <div id="sync-status" class="sync-status"></div>
+        <div class="period-picker">
+          <button id="prev-month" class="btn btn-ghost">‹</button>
+          <span id="period-label">
+            <span class="period-full">—</span>
+            <span class="period-short">—</span>
+          </span>
+          <button id="next-month" class="btn btn-ghost">›</button>
+        </div>
+        <button id="btn-backup" class="btn btn-ghost" title="Exportar backup JSON">⇩<span class="btn-text"> Backup</span></button>
+        <button id="btn-restore" class="btn btn-ghost" title="Importar backup JSON">⇪<span class="btn-text"> Restaurar</span></button>
+        <input type="file" id="file-restore" accept="application/json" hidden>
+      </div>
+    </header>
+
+    <section id="view-dashboard" class="view">
+      <!-- HERO: visão geral do mês -->
+      <div class="dash-hero">
+        <div class="dash-hero-main">
+          <div class="dash-hero-label">Saldo previsto ao fim de <span id="dash-period-label">—</span></div>
+          <div class="dash-hero-value" id="dash-saldo-final">R$ 0,00</div>
+          <div class="dash-hero-sub">
+            <span>Saldo atual: <b id="dash-saldo-atual">R$ 0,00</b></span>
+            <span>•</span>
+            <span>Pendente: <b id="dash-pendente-total">R$ 0,00</b></span>
+          </div>
+        </div>
+        <div class="dash-hero-side">
+          <button class="btn btn-primary btn-block" id="dash-novo-lanc">+ Novo Lançamento</button>
+          <button class="btn btn-soft btn-block hidden" id="dash-doc-ia" data-ai-gate>
+            <span class="ai-spark">✦</span> Ler documento
+          </button>
+          <button class="btn btn-soft btn-block" id="dash-cupom">📷 Importar Cupom</button>
+        </div>
+      </div>
+
+      <!-- Insights gerados por IA -->
+      <section class="card card-ai hidden" id="dash-insights">
+        <div class="card-head">
+          <h2><span class="ai-spark">✦</span> Insights da IA</h2>
+          <button class="btn btn-ghost btn-small" data-goto="assistente">Conversar →</button>
+        </div>
+        <div id="dash-insights-body"></div>
+      </section>
+
+      <!-- KPIs de 5 cards: entradas, saídas, saldo do mês, cartões e contas pendentes -->
+      <div class="kpi-row kpi-row-5">
+        <div class="kpi kpi-in">
+          <div class="kpi-label">Entradas no mês</div>
+          <div class="kpi-value" id="kpi-entradas">R$ 0,00</div>
+          <div class="kpi-foot muted" id="kpi-entradas-count">0 lançamentos</div>
+        </div>
+        <div class="kpi kpi-out">
+          <div class="kpi-label">Saídas no mês</div>
+          <div class="kpi-value" id="kpi-saidas">R$ 0,00</div>
+          <div class="kpi-foot muted" id="kpi-saidas-count">0 lançamentos</div>
+        </div>
+        <div class="kpi kpi-saldo">
+          <div class="kpi-label">Saldo do mês</div>
+          <div class="kpi-value" id="kpi-saldo">R$ 0,00</div>
+          <div class="kpi-foot muted" id="kpi-saldo-foot">Entradas − Saídas</div>
+        </div>
+        <div class="kpi kpi-cartao">
+          <div class="kpi-label">Cartões no mês</div>
+          <div class="kpi-value" id="kpi-cartoes">R$ 0,00</div>
+          <div class="kpi-foot muted" id="kpi-cartoes-foot">0 faturas</div>
+        </div>
+        <div class="kpi kpi-pend">
+          <div class="kpi-label">A pagar no mês</div>
+          <div class="kpi-value" id="kpi-pendente">R$ 0,00</div>
+          <div class="kpi-foot muted" id="kpi-pendente-count">0 a pagar</div>
+        </div>
+      </div>
+
+      <!-- Filtros do dashboard -->
+      <div class="dash-filters">
+        <input type="search" id="dash-search" placeholder="🔍 Buscar descrição, categoria, conta...">
+        <select id="dash-f-tipo">
+          <option value="">Todos os tipos</option>
+          <option value="entrada">Entradas</option>
+          <option value="saida">Saídas</option>
+        </select>
+        <select id="dash-f-categoria"><option value="">Todas categorias</option></select>
+        <select id="dash-f-conta"><option value="">Todas contas</option></select>
+        <select id="dash-f-status">
+          <option value="">Todos status</option>
+          <option value="Pago">Pago</option>
+          <option value="Parcial">Parcial</option>
+          <option value="Pendente">Pendente</option>
+        </select>
+        <input type="number" id="dash-f-min" placeholder="Valor mín R$" step="0.01" min="0">
+        <button id="dash-clear-filters" class="btn btn-ghost btn-small">Limpar</button>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head">
+            <h2>Evolução mensal</h2>
+            <div class="muted small">Últimos 12 meses</div>
+          </div>
+          <div id="chart-trend" class="chart-wrap"></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h2>Gastos por categoria</h2>
+            <div class="muted small" id="cat-sub">Mês atual</div>
+          </div>
+          <div id="chart-categories" class="chart-wrap"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head">
+            <h2>Próximas contas a pagar</h2>
+            <button class="btn btn-ghost btn-small" data-goto="contas">Ver todas →</button>
+          </div>
+          <div id="list-upcoming" class="simple-list"></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h2>Saldo por conta</h2>
+            <div class="muted small">Considera apenas pagos</div>
+          </div>
+          <div id="list-accounts" class="simple-list"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Últimos lançamentos</h2>
+          <button class="btn btn-ghost btn-small" data-goto="lancamentos">Ver todos →</button>
+        </div>
+        <div id="list-recent" class="simple-list"></div>
+      </div>
+    </section>
+
+    <section id="view-lancamentos" class="view hidden">
+      <div class="card">
+        <div class="filters">
+          <input type="search" id="f-search" placeholder="Buscar descrição, categoria, conta...">
+          <select id="f-tipo">
+            <option value="">Todos os tipos</option>
+            <option value="entrada">Entradas</option>
+            <option value="saida">Saídas</option>
+          </select>
+          <select id="f-categoria"><option value="">Todas categorias</option></select>
+          <select id="f-conta"><option value="">Todas contas</option></select>
+          <select id="f-status">
+            <option value="">Todos status</option>
+            <option value="Pago">Pago</option>
+            <option value="Pendente">Pendente</option>
+          </select>
+          <select id="f-periodo">
+            <option value="mes">Este mês</option>
+            <option value="ano">Este ano</option>
+            <option value="todos">Todos</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Competência</th>
+                <th>Pagamento</th>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th>Conta</th>
+                <th class="right">Entrada</th>
+                <th class="right">Saída</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody-lancamentos"></tbody>
+            <tfoot>
+              <tr>
+                <td colspan="5" class="right bold">Totais</td>
+                <td class="right bold" id="foot-entradas">R$ 0,00</td>
+                <td class="right bold" id="foot-saidas">R$ 0,00</td>
+                <td colspan="2" class="right bold" id="foot-saldo">Saldo: R$ 0,00</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-contas" class="view hidden">
+      <div class="card">
+        <div class="card-head">
+          <h2 id="contas-title">Contas a Pagar</h2>
+          <button id="btn-nova-conta" class="btn btn-primary btn-small">+ Novo lançamento</button>
+        </div>
+
+        <!-- Toggle Tipo: A Pagar / A Receber / Tudo -->
+        <div class="contas-tipo-toggle">
+          <button class="contas-tipo-btn active" data-tipo="saida">💸 A Pagar</button>
+          <button class="contas-tipo-btn" data-tipo="entrada">💰 A Receber</button>
+          <button class="contas-tipo-btn" data-tipo="tudo">📋 Tudo</button>
+        </div>
+
+        <div class="filters">
+          <select id="cf-periodo">
+            <option value="todas">Todas</option>
+            <option value="vencidas">Vencidas</option>
+            <option value="7">Próximos 7 dias</option>
+            <option value="30" selected>Próximos 30 dias</option>
+            <option value="mes">Este mês</option>
+          </select>
+          <select id="cf-categoria"><option value="">Todas categorias</option></select>
+          <select id="cf-conta"><option value="">Todas contas</option></select>
+          <select id="cf-cartoes">
+            <option value="agrupado" selected>💳 Agrupar cartões por fatura</option>
+            <option value="separado">💳 Mostrar cartões individuais</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Vencimento</th>
+                <th>Dias</th>
+                <th>Item</th>
+                <th>Categoria</th>
+                <th>Conta</th>
+                <th class="right">Saldo devedor</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody-contas"></tbody>
+            <tfoot>
+              <tr>
+                <td colspan="5" class="right bold">Total devedor</td>
+                <td class="right bold" id="foot-contas">R$ 0,00</td>
+                <td colspan="2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-cartoes" class="view hidden">
+      <div class="card">
+        <div class="card-head">
+          <h2>Cartões de Crédito</h2>
+          <div class="muted small">Resumo das faturas em aberto</div>
+        </div>
+        <div id="cards-grid" class="cards-grid"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Lançamentos de cartão do mês</h2>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th>Cartão</th>
+                <th class="right">Valor</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-cartoes"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-fluxo" class="view hidden">
+      <div class="card">
+        <div class="card-head">
+          <h2>Fluxo de Caixa</h2>
+          <div class="muted small" id="fluxo-period">—</div>
+        </div>
+        <div class="kpi-row" id="fluxo-totais"></div>
+        <div id="fluxo-cards" class="fluxo-cards"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Movimentações da conta selecionada</h2>
+          <select id="fluxo-conta-sel" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:13px;"></select>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Descrição</th>
+                <th>Categoria</th>
+                <th class="right">Entrada</th>
+                <th class="right">Saída</th>
+                <th class="right">Saldo</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-fluxo"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-fixos" class="view hidden">
+      <div class="card">
+        <div class="card-head">
+          <h2>Lançamentos Fixos</h2>
+          <button id="btn-nova-recorrencia" class="btn btn-primary btn-small">+ Novo lançamento fixo</button>
+        </div>
+        <div class="muted small" style="margin-bottom:14px;">
+          Cadastre contas que se repetem (salário, aluguel, internet, Netflix...) e o app cria os lançamentos automaticamente como Pendente.
+        </div>
+        <div id="recorrencias-list" class="recorrencias-list"></div>
+      </div>
+    </section>
+
+    <section id="view-relatorios" class="view hidden">
+      <div class="card">
+        <div class="card-head">
+          <h2>📋 DRE — Demonstração de Resultados <span class="muted small" style="margin-left:6px;">(Regime de Competência)</span></h2>
+          <button id="btn-export-dre" class="btn btn-ghost btn-small">⇩ Exportar CSV</button>
+        </div>
+        <div class="muted small" style="margin-bottom:12px;">
+          Considera <b>Data de Competência</b> e inclui lançamentos <b>Pagos + Pendentes</b>. Exclui Transferências.
+        </div>
+        <div id="dre-content"></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><h2>Entradas x Saídas (12 meses)</h2></div>
+          <div id="rep-bars" class="chart-wrap"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Saldo acumulado</h2></div>
+          <div id="rep-line" class="chart-wrap"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h2>Por categoria — mês atual</h2>
+          <button id="btn-export-csv" class="btn btn-ghost btn-small">⇩ Exportar CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Categoria</th>
+                <th class="right">Saídas</th>
+                <th class="right">% do total</th>
+                <th>Distribuição</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-categorias"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Resumo anual</h2></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Mês</th>
+                <th class="right">Entradas</th>
+                <th class="right">Saídas</th>
+                <th class="right">Saldo</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-anual"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-assistente" class="view hidden">
+      <div class="ai-shell hidden" data-ai-gate>
+        <div class="ai-chat card">
+          <div class="ai-chat-head">
+            <div>
+              <h2><span class="ai-spark">✦</span> Assistente financeiro</h2>
+              <div class="muted small">Pergunte em português. Eu leio seus dados e faço as contas.</div>
+            </div>
+            <button class="btn btn-ghost btn-small" id="ai-clear" title="Limpar conversa">↺ Limpar</button>
+          </div>
+
+          <div class="ai-chat-log" id="ai-chat-log"></div>
+
+          <form class="ai-composer" id="ai-form">
+            <textarea id="ai-input" rows="1" placeholder="Ex.: quanto gastei com alimentação nos últimos 3 meses?" autocomplete="off"></textarea>
+            <button type="submit" class="btn btn-primary ai-send" id="ai-send" aria-label="Enviar">↑</button>
+          </form>
+        </div>
+
+        <aside class="ai-side">
+          <div class="card">
+            <div class="card-head"><h2>Ferramentas</h2></div>
+            <button class="tool-card" id="ai-tool-doc">
+              <span class="tool-icon">📄</span>
+              <span class="tool-text">
+                <strong>Ler documento</strong>
+                <span class="muted small">Cupom, nota, boleto ou fatura viram lançamentos</span>
+              </span>
+            </button>
+            <button class="tool-card" id="ai-tool-cat">
+              <span class="tool-icon">🏷️</span>
+              <span class="tool-text">
+                <strong>Revisar categorias</strong>
+                <span class="muted small">Encontra e corrige lançamentos mal classificados</span>
+              </span>
+            </button>
+            <button class="tool-card" id="ai-tool-plano">
+              <span class="tool-icon">🗂️</span>
+              <span class="tool-text">
+                <strong>Organizar plano de contas</strong>
+                <span class="muted small">Corrige nomes, junta duplicatas e reagrupa</span>
+              </span>
+            </button>
+            <button class="tool-card" data-goto="dashboard">
+              <span class="tool-icon">◈</span>
+              <span class="tool-text">
+                <strong>Insights do mês</strong>
+                <span class="muted small">Alertas e oportunidades no Dashboard</span>
+              </span>
+            </button>
+          </div>
+
+          <div class="card ai-privacy">
+            <div class="card-head"><h2>Como funciona</h2></div>
+            <p class="muted small">
+              Suas perguntas e um resumo dos seus lançamentos vão para a API da Anthropic
+              através do servidor deste app. A chave fica só no servidor — nunca no navegador.
+              O histórico da conversa fica salvo apenas neste dispositivo.
+            </p>
+          </div>
+        </aside>
+      </div>
+
+      <div class="card ai-off hidden" data-ai-gate-off>
+        <div class="empty-state">
+          <div class="empty-icon">✦</div>
+          <h3>Assistente indisponível</h3>
+          <p class="muted" id="ai-indisponivel-msg">Verificando disponibilidade...</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-config" class="view hidden">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head" style="flex-direction:column;align-items:stretch;gap:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+              <h2>Plano de Contas</h2>
+            </div>
+            <form id="form-cat" class="inline-form" style="flex-wrap:wrap;">
+              <input type="text" id="new-cat" placeholder="Nova categoria" required style="flex:1;min-width:140px;">
+              <select id="new-cat-grupo" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;font-family:inherit;">
+                <option value="Receitas">Receitas</option>
+                <option value="Despesas Fixas">Despesas Fixas</option>
+                <option value="Despesas Variáveis" selected>Despesas Variáveis</option>
+                <option value="Transporte">Transporte</option>
+                <option value="Saúde">Saúde</option>
+                <option value="Casa">Casa</option>
+                <option value="Pessoal">Pessoal</option>
+                <option value="Lazer/Viagem">Lazer/Viagem</option>
+                <option value="Pet">Pet</option>
+                <option value="Investimentos">Investimentos</option>
+                <option value="Financeiras">Financeiras</option>
+                <option value="Transferências">Transferências</option>
+                <option value="Outros">Outros</option>
+              </select>
+              <button class="btn btn-primary btn-small">Adicionar</button>
+            </form>
+          </div>
+          <div id="list-cats" class="chips"></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h2>Contas & Cartões</h2>
+            <form id="form-conta" class="inline-form">
+              <input type="text" id="new-conta" placeholder="Nova conta/cartão" required>
+              <select id="new-conta-tipo">
+                <option value="conta">Conta</option>
+                <option value="cartao">Cartão</option>
+              </select>
+              <button class="btn btn-primary btn-small">Adicionar</button>
+            </form>
+          </div>
+          <div id="list-contas" class="chips"></div>
+        </div>
+      </div>
+
+      <div class="card card-ai">
+        <div class="card-head">
+          <h2><span class="ai-spark">✦</span> Inteligência Artificial</h2>
+          <div class="muted small" id="ai-config-status">Verificando...</div>
+        </div>
+        <div class="config-row config-auto" data-ai-gate>
+          <div>
+            <div class="bold">Modo automático</div>
+            <div class="muted small">
+              Quando a IA tiver certeza do que leu e de qual conta usar, ela grava sozinha
+              e te avisa com um botão de desfazer. No que houver dúvida, ela continua perguntando.
+            </div>
+            <div class="auto-limiar hidden" id="auto-limiar-wrap">
+              <label for="cfg-limiar">Grava sozinha a partir de:</label>
+              <select id="cfg-limiar">
+                <option value="alta">confiança alta (recomendado)</option>
+                <option value="media">confiança média ou alta</option>
+              </select>
+            </div>
+          </div>
+          <button class="switch" id="cfg-auto" role="switch" aria-checked="false" aria-label="Modo automático">
+            <span class="switch-dot"></span>
+          </button>
+        </div>
+        <div class="config-row" data-ai-gate>
+          <div>
+            <div class="bold">Revisar categorias com IA</div>
+            <div class="muted small">Encontra lançamentos sem categoria ou no balde genérico e sugere a categoria certa, com base no seu próprio histórico.</div>
+          </div>
+          <button class="btn btn-primary" id="btn-cfg-categorizar">Revisar agora</button>
+        </div>
+        <div class="config-row" data-ai-gate>
+          <div>
+            <div class="bold">Organizar plano de contas</div>
+            <div class="muted small">Corrige nomes com erro de digitação, junta categorias duplicadas e move as que estão no grupo errado.</div>
+          </div>
+          <button class="btn" id="btn-cfg-plano">Revisar plano</button>
+        </div>
+        <div class="config-row" data-ai-gate>
+          <div>
+            <div class="bold">O que a IA já aprendeu</div>
+            <div class="muted small" id="ai-memoria-resumo">Nenhuma correção registrada ainda.</div>
+          </div>
+          <button class="btn btn-ghost" id="btn-cfg-memoria">Ver correções</button>
+        </div>
+        <div class="config-row" data-ai-gate id="row-desfazer-ia" style="display:none;">
+          <div>
+            <div class="bold">Desfazer última ação da IA</div>
+            <div class="muted small" id="ai-ultima-acao">—</div>
+          </div>
+          <button class="btn btn-ghost" id="btn-cfg-desfazer">↩ Desfazer</button>
+        </div>
+        <div class="config-row" data-ai-gate>
+          <div>
+            <div class="bold">Ler um documento</div>
+            <div class="muted small">Cupom fiscal, nota, boleto, comprovante ou fatura de cartão viram lançamentos prontos para revisar.</div>
+          </div>
+          <button class="btn" id="btn-cfg-documento">Enviar arquivo</button>
+        </div>
+        <div class="config-row" data-ai-gate>
+          <div>
+            <div class="bold">Limpar histórico do assistente</div>
+            <div class="muted small">Apaga a conversa salva neste dispositivo. Não afeta seus lançamentos.</div>
+          </div>
+          <button class="btn btn-ghost" id="btn-cfg-limpar-ia">Limpar conversa</button>
+        </div>
+        <div class="config-row" data-ai-gate-off>
+          <div>
+            <div class="bold">IA não configurada</div>
+            <div class="muted small" id="ai-config-motivo">Verificando...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="card-sync">
+        <div class="card-head">
+          <h2>Sincronização com arquivo</h2>
+          <div class="muted small">Garante que seus dados não se percam se o navegador limpar o cache</div>
+        </div>
+        <div id="sync-info" class="sync-info"></div>
+        <div class="config-row">
+          <div>
+            <div class="bold">Criar arquivo de dados</div>
+            <div class="muted small">Escolha onde salvar (ex: <i>Documentos/Baron.json</i>). O app passa a gravar nesse arquivo automaticamente a cada mudança.</div>
+          </div>
+          <button class="btn btn-primary" id="btn-pick-create">＋ Criar arquivo</button>
+        </div>
+        <div class="config-row">
+          <div>
+            <div class="bold">Abrir arquivo existente</div>
+            <div class="muted small">Use um JSON já existente (em outro PC, pen drive, OneDrive, etc).</div>
+          </div>
+          <button class="btn" id="btn-pick-open">⇪ Abrir arquivo</button>
+        </div>
+        <div class="config-row" id="row-unbind" style="display:none;">
+          <div>
+            <div class="bold">Desvincular</div>
+            <div class="muted small">Parar de gravar no arquivo. Os dados continuam salvos no navegador.</div>
+          </div>
+          <button class="btn btn-ghost" id="btn-unbind">✕ Desvincular</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Dados e Backup</h2></div>
+        <div class="config-row">
+          <div>
+            <div class="bold">Exportar backup JSON</div>
+            <div class="muted small">Salve um arquivo com todos os seus dados para recuperar depois.</div>
+          </div>
+          <button class="btn btn-primary" id="btn-backup-2">⇩ Exportar agora</button>
+        </div>
+        <div class="config-row">
+          <div>
+            <div class="bold">Exportar lançamentos em CSV</div>
+            <div class="muted small">Para abrir no Excel ou Google Sheets.</div>
+          </div>
+          <button class="btn btn-ghost" id="btn-csv-lanc">⇩ Exportar CSV</button>
+        </div>
+        <div class="config-row">
+          <div>
+            <div class="bold">Restaurar backup</div>
+            <div class="muted small">Substitui os dados atuais pelo backup escolhido.</div>
+          </div>
+          <button class="btn btn-ghost" id="btn-restore-2">⇪ Escolher arquivo</button>
+        </div>
+        <div class="config-row danger">
+          <div>
+            <div class="bold">Zerar tudo</div>
+            <div class="muted small">Apaga todos os lançamentos, contas e categorias personalizadas.</div>
+          </div>
+          <button class="btn btn-danger" id="btn-reset">✖ Zerar</button>
+        </div>
+        <div class="config-row">
+          <div>
+            <div class="bold">Recarregar dados iniciais da planilha</div>
+            <div class="muted small">Adiciona novamente as contas a pagar originais (não remove o que já existe).</div>
+          </div>
+          <button class="btn btn-ghost" id="btn-seed">↺ Recarregar exemplo</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="modal-root"></div>
+  <div id="toast-root"></div>
+
+  <!-- Config (Supabase URL + anon key). Edite config.js para preencher. -->
+  <script src="config.js"></script>
+
+  <!-- SDK do Supabase (carregado de CDN; em modo desktop offline é ignorado se não carregar) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
+
+  <!-- Auth + Remote Store (usados só em modo online, mas seguros em offline) -->
+  <script src="auth.js"></script>
+  <script src="remote-store.js"></script>
+
+  <script src="data.js"></script>
+  <script src="charts.js"></script>
+
+  <!-- Camada de IA (usa o proxy /api/ai; desativa sozinha em modo desktop) -->
+  <script src="ai.js"></script>
+  <script src="ai-ui.js"></script>
+
+  <script src="app.js"></script>
+
+  <!-- Service Worker (PWA) — apenas em modo online -->
+  <script>
+    if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./service-worker.js").catch(err => {
+          console.warn("Service worker não registrou:", err);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
